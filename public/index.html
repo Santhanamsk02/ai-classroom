@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Audio Transcription</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            min-height: 150vh;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            background-size: 400% 400%;
+            animation: gradientFlow 15s ease infinite;
+            color: #f8fafc;
+            padding: 2rem;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-weight: 600;
+            color: #fff;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        h2::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: #3b82f6;
+            border-radius: 2px;
+        }
+
+        #video {
+            width: 640px;
+            height: 480px;
+            border-radius: 16px;
+            object-fit: cover;
+            margin: 1.5rem auto;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        #video:hover {
+            transform: scale(1.02);
+            box-shadow: 0 12px 40px rgba(59, 130, 246, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(45deg, #2563eb, #1d4ed8);
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                120deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            transition: 0.5s;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #start {
+            background: linear-gradient(45deg, #3b82f6, #2563eb);
+        }
+
+        #stop {
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+        }
+
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            background: linear-gradient(45deg, #64748b, #475569);
+            transform: none !important;
+        }
+
+        #transcription {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: 12px;
+            width: 100%;
+            min-height: 150px;
+            margin-top: 1.5rem;
+            line-height: 1.6;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            transition: all 0.3s ease;
+        }
+
+        #transcription:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        @keyframes gradientFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            
+            .container {
+                padding: 1.5rem;
+            }
+            
+            #video {
+                width: 100%;
+                height: 300px;
+            }
+
+            h2 {
+                font-size: 2rem;
+            }
+        }
+        .ai-particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border-radius: 50%;
+            animation: aiFloat 3s infinite linear;
+        }
+        .circle {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.3);
+            animation: float 6s infinite linear;
+        }
+        .background {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+        }
+        @keyframes float {
+            0% { transform: translateY(0); opacity: 0.8; }
+            50% { opacity: 0.5; }
+            100% { transform: translateY(-100vh); opacity: 0; }
+        }
+
+        @keyframes aiFloat {
+            0% { transform: translateY(0) scale(1); opacity: 0; }
+            20% { opacity: 1; }
+            100% { transform: translateY(-100vh) scale(0.5); opacity: 0; }
+        }
+
+      
+    </style>
+</head>
+<body>
+    <div class="background">
+        <!-- Existing circles -->
+        <div class="circle" style="top: 10%; left: 20%; animation-duration: 7s;"></div>
+        <div class="circle" style="top: 40%; left: 70%; animation-duration: 6s;"></div>
+        <div class="circle" style="top: 70%; left: 30%; animation-duration: 5s;"></div>
+        <div class="circle" style="top: 90%; left: 80%; animation-duration: 8s;"></div>
+        
+        <div class="ai-particle" style="left: 25%; animation-delay: 0.5s;"></div>
+        <div class="ai-particle" style="left: 45%; animation-delay: 1.2s;"></div>
+        <div class="ai-particle" style="left: 65%; animation-delay: 2s;"></div>
+    </div>
+    <body>
+        <div class="container floating">
+            <h2>Live Audio Transcription</h2>
+            <video id="video" autoplay></video>
+            
+            <div class="button-group">
+                <button id="mic-toggle">🎤 Mic On</button>
+                <button id="video-toggle">📹 Video On</button>
+            </div>
+            
+            <div class="button-group">
+                <button id="start" disabled>🎤 Start Recording</button>
+                <button id="stop" disabled>⏹ Stop Recording</button>
+            </div>
+    
+            <p><strong>Transcription:</strong></p>
+            <div id="transcription">Waiting...</div>
+        </div>
+    
+        <script>
+            let mediaRecorder;
+let audioChunks = [];
+let recognition;
+let isRecording = false;
+let fullTranscript = "";
+let micEnabled = false;
+let videoEnabled = false; // Set video to off by default
+let stream;
+
+document.getElementById("mic-toggle").addEventListener("click", () => {
+    micEnabled = !micEnabled;
+    document.getElementById("mic-toggle").innerText = micEnabled ? "🎤 Mic Off" : "🎤 Mic On";
+    if (stream) {
+        stream.getAudioTracks().forEach(track => track.enabled = micEnabled);
+    }
+    document.getElementById("start").disabled = !micEnabled;
+});
+
+document.getElementById("video-toggle").addEventListener("click", () => {
+    videoEnabled = !videoEnabled;
+    document.getElementById("video-toggle").innerText = videoEnabled ? "📹 Video Off" : "📹 Video On";
+    if (stream) {
+        stream.getVideoTracks().forEach(track => track.enabled = videoEnabled);
+    }
+});
+
+document.getElementById("start").addEventListener("click", async () => {
+    try {
+        // Ensure audio is always captured, even if video is off
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: videoEnabled ? true : false, 
+            audio: micEnabled 
+        });
+
+        // If video is enabled, show the stream in the video element
+        if (videoEnabled) {
+            document.getElementById("video").srcObject = stream;
+        } else {
+            document.getElementById("video").srcObject = null; // Clear video if disabled
+        }
+
+        const audioStream = new MediaStream(stream.getAudioTracks().filter(track => track.kind === "audio"));
+        mediaRecorder = new MediaRecorder(audioStream);
+        mediaRecorder.start();
+        isRecording = true;
+
+        document.getElementById("start").disabled = true;
+        document.getElementById("stop").disabled = false;
+        document.getElementById("transcription").innerText = "Listening...";
+
+        audioChunks = [];
+        mediaRecorder.addEventListener("dataavailable", event => {
+            audioChunks.push(event.data);
+        });
+
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = "en-US";
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onresult = (event) => {
+            let transcript = "";
+            for (let i = 0; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript + " ";
+            }
+            document.getElementById("transcription").innerText = fullTranscript + transcript;
+        };
+
+        recognition.start();
+    } catch (error) {
+        alert("Microphone or camera access denied: " + error);
+    }
+});
+
+document.getElementById("stop").addEventListener("click", async () => {
+    mediaRecorder.stop();
+    recognition.stop();
+    isRecording = false;
+
+    document.getElementById("stop").disabled = true;
+    document.getElementById("start").disabled = !micEnabled;
+
+    mediaRecorder.addEventListener("stop", async () => {
+        const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.wav");
+
+        const response = await fetch("http://localhost:5000/upload", {
+            method: "POST",
+            body: formData
+        });
+
+        if (response.ok) {
+            alert("Audio uploaded successfully!");
+        } else {
+            alert("Upload failed.");
+        }
+    });
+});
+
+        </script>
+    </body>
+    </html>

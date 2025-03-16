@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Classroom Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        /* Existing styles remain... */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            overflow: hidden;
+            position: relative;
+        }
+        /* Background Animation */
+        .background {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+        }
+        .circle {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            animation: float 6s infinite linear;
+        }
+        @keyframes float {
+            0% { transform: translateY(0); opacity: 0.8; }
+            50% { opacity: 0.5; }
+            100% { transform: translateY(-100vh); opacity: 0; }
+        }
+        
+        .container {
+            display: flex;
+            width: 900px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            animation: fadeIn 1s ease-in-out;
+            position: relative;
+            z-index: 10;
+        }
+        .left-panel, .right-panel {
+            width: 50%;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .left-panel h2 {
+            font-weight: 600;
+            font-family: "Bebas Neue", sans-serif;
+            font-size: 50px;
+        }
+        .left-panel input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            outline: none;
+            transition: 0.3s;
+            font-size: 14px;
+        }
+        .left-panel input:focus {
+            border-color: #6a11cb;
+            box-shadow: 0px 0px 8px rgba(106, 17, 203, 0.5);
+        }
+        .left-panel button {
+            width: 100%;
+            padding: 12px;
+            background: #6a11cb;
+            color: white;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 10px;
+        }
+        .left-panel button:hover {
+            background: #2575fc;
+            transform: scale(1.05);
+        }
+        .right-panel {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-left: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        .right-panel h3 {
+            position: relative;
+            color: white;
+            font-size: 22px;
+            text-align: center;
+            z-index: 2;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                width: 90%;
+            }
+            .left-panel, .right-panel {
+                width: 100%;
+            }
+            .right-panel {
+                display: none;
+            }
+        }
+        /* Enhanced Styles */
+        .container {
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+
+        
+
+        @keyframes titleFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .left-panel input {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .left-panel input:focus {
+            transform: scale(1.02);
+        }
+
+        .left-panel button {
+            position: relative;
+            overflow: hidden;
+            transition: 0.5s;
+        }
+
+        .left-panel button:hover {
+            letter-spacing: 2px;
+        }
+
+        .left-panel button::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            left: -100%;
+            top: 0;
+            transition: 0.4s;
+            transform: skewX(-15deg);
+        }
+
+        .left-panel button:hover::after {
+            left: 120%;
+        }
+
+        .right-panel {
+            position: relative;
+            background: url(bg.jpg) center;
+        }
+
+      
+
+        @keyframes glow {
+            0%, 100% { transform: translate(0, 0); opacity: 0.3; }
+            25% { transform: translate(100px, -50px); }
+            50% { transform: translate(-50px, 80px); }
+            75% { transform: translate(80px, 100px); }
+        }
+
+        .ai-particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border-radius: 50%;
+            animation: aiFloat 3s infinite linear;
+        }
+
+        @keyframes aiFloat {
+            0% { transform: translateY(0) scale(1); opacity: 0; }
+            20% { opacity: 1; }
+            100% { transform: translateY(-100vh) scale(0.5); opacity: 0; }
+        }
+
+        .neon-text {
+            text-shadow: 0 0 1px #6a11cb,
+                       0 0 2px #6a11cb,
+                       0 0 3px #6a11cb;
+            animation: neonPulse 2s infinite;
+        }
+
+        @keyframes neonPulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="background">
+        <!-- Existing circles -->
+        <div class="circle" style="top: 10%; left: 20%; animation-duration: 7s;"></div>
+        <div class="circle" style="top: 40%; left: 70%; animation-duration: 6s;"></div>
+        <div class="circle" style="top: 70%; left: 30%; animation-duration: 5s;"></div>
+        <div class="circle" style="top: 90%; left: 80%; animation-duration: 8s;"></div>
+        
+        <!-- AI Particles -->
+        <div class="ai-particle" style="left: 25%; animation-delay: 0.5s;"></div>
+        <div class="ai-particle" style="left: 45%; animation-delay: 1.2s;"></div>
+        <div class="ai-particle" style="left: 65%; animation-delay: 2s;"></div>
+    </div>
+    
+    <div class="container">
+        <div class="left-panel">
+            <h2 class="neon-text">Teacher Sign Up</h2>
+            <p style="margin-bottom: 20px; color: #666;">Create your Account in AI Classroom</p>
+            <input type="text" placeholder="Enter Full Name">
+            <input type="text" placeholder="Enter Your Subject">
+            <input type="text" placeholder="Enter Your Class">
+            <input type="email" placeholder="Enter Your Email Address">
+            <input type="text" placeholder="Create Password">
+            <div style="display: flex; justify-content: space-evenly; margin: 15px 0;">
+                <div style="color: #666;">Already Have An Account?</div>
+                <a href="login.html" style="color: #6a11cb; text-decoration: none; font-weight: 600;">Login</a>
+            </div>
+            <button>Sign Up <i class="fas fa-arrow-right"></i></button>
+        </div>
+        
+        <div class="right-panel">
+
+        </div>
+    </div>
+
+    <script>
+        // Add ripple effect to button
+        document.querySelector('button').addEventListener('click', function(e) {
+            let ripple = document.createElement('div');
+            ripple.style.position = 'absolute';
+            ripple.style.width = '20px';
+            ripple.style.height = '20px';
+            ripple.style.background = 'rgba(255, 255, 255, 0.5)';
+            ripple.style.borderRadius = '50%';
+            ripple.style.transform = 'translate(-50%, -50%)';
+            ripple.style.pointerEvents = 'none';
+            ripple.style.animation = 'ripple 1s linear';
+            
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 1000);
+        });
+
+        // Add floating labels
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.style.transform = 'translateZ(20px)';
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.style.transform = 'translateZ(0)';
+            });
+        });
+            document.querySelector("button").addEventListener("click", async function (e) {
+                e.preventDefault(); 
+            
+                const fullName = document.querySelector("input[placeholder='Enter Full Name']").value;
+                const subject = document.querySelector("input[placeholder='Enter Your Subject']").value;
+                const email = document.querySelector("input[placeholder='Enter Your Email Address']").value;
+                const password = document.querySelector("input[placeholder='Create Password']").value;
+                const Class = document.querySelector("input[placeholder='Enter Your Class']").value;
+
+            
+                const userData = { fullName, subject, email, password,Class };
+            
+                try {
+                    const response = await fetch("http://localhost:5000/signup", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(userData)
+                    });
+            
+                    const data = await response.json();
+                    if (response.ok) {
+                        alert("Signup successful!");
+                        window.location.href = "login.html"; 
+                    }
+                     else {
+                        alert(data.message+" Please Login");
+                        window.location.href = "login.html"; 
+                    }
+                } 
+                catch (error) {
+                    console.error("Signup Error:", error);
+                    alert("Signup failed! Please try again.");
+                }
+            });
+            
+    </script>
+</body>
+</html>
