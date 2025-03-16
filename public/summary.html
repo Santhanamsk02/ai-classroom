@@ -212,7 +212,7 @@
 
         async function fetchData() {
             try {
-                const response = await fetch("http://localhost:5000/summary");
+                const response = await fetch("/api/summary");
                 data = await response.json();
                 loadSubjects();
             } catch (error) {
