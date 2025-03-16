@@ -212,7 +212,7 @@
 
         async function fetchData() {
             try {
-                const response = await fetch("/api/summary");
+                const response = await fetch("/summary");
                 data = await response.json();
                 loadSubjects();
             } catch (error) {

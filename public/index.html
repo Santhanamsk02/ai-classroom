@@ -346,7 +346,7 @@ document.getElementById("stop").addEventListener("click", async () => {
         const formData = new FormData();
         formData.append("audio", audioBlob, "recording.wav");
 
-        const response = await fetch("/api/upload", {
+        const response = await fetch("/upload", {
             method: "POST",
             body: formData
         });

@@ -18,27 +18,60 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
-  });
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
 app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
 
-
+// MongoDB URI
 const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://chandru127001:hfjSd3QoX5y6Gn6I@aiclassroom.hrciz.mongodb.net/?retryWrites=true&w=majority&appName=AIclassroom";
 const DB_NAME = "mydatabase";
-let client;
 
-// Connect to MongoDB
+// Connect to MongoDB using Mongoose
 const connectToMongoDB = async () => {
   try {
-    client = new MongoClient(MONGO_URI);
-    await client.connect();
-    console.log("✅ Connected to MongoDB");
+    await mongoose.connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 10000, // Increase timeout to 10 seconds
+      socketTimeoutMS: 10000, // Increase socket timeout to 10 seconds
+    });
+    console.log("✅ Connected to MongoDB using Mongoose");
   } catch (error) {
     console.error("❌ MongoDB Connection Failed:", error);
-    process.exit(1); // Exit if MongoDB connection fails
+    process.exit(1);
   }
 };
 
+// Connect to MongoDB for GridFS
+let gridFSClient;
+
+const connectGridFSClient = async () => {
+  try {
+    gridFSClient = new MongoClient(MONGO_URI);
+    await gridFSClient.connect();
+    console.log("✅ GridFS client connected to MongoDB");
+  } catch (error) {
+    console.error("❌ GridFS client connection failed:", error);
+    process.exit(1);
+  }
+};
+
+// Upload to GridFS
+const uploadToGridFS = async (fileBuffer, filename, fileType, metadata = {}) => {
+  try {
+    const db = gridFSClient.db(DB_NAME);
+    const bucket = new GridFSBucket(db);
+    const uploadStream = bucket.openUploadStream(filename, { metadata });
+    await new Promise((resolve, reject) => {
+      uploadStream.end(fileBuffer, (err) => (err ? reject(err) : resolve()));
+    });
+    console.log(`✅ Uploaded ${filename} to MongoDB`);
+  } catch (error) {
+    console.error("❌ Error uploading to GridFS:", error);
+    throw error;
+  }
+};
+
+let teachername = ''
+let teachersubject=''
 // User Schema
 const UserSchema = new mongoose.Schema({
   fullName: String,
@@ -63,24 +96,7 @@ const Student = mongoose.model('Student', StudentSchema);
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Upload to GridFS
-const uploadToGridFS = async (fileBuffer, filename, fileType, metadata = {}) => {
-  try {
-    const db = client.db(DB_NAME);
-    const bucket = new GridFSBucket(db);
-    const uploadStream = bucket.openUploadStream(filename, { metadata });
-    await new Promise((resolve, reject) => {
-      uploadStream.end(fileBuffer, (err) => (err ? reject(err) : resolve()));
-    });
-    console.log(`✅ Uploaded ${filename} to MongoDB`);
-  } catch (error) {
-    console.error("❌ Error uploading to GridFS:", error);
-    throw error;
-  }
-};
-
-
-
+// Routes
 app.post('/signup', async (req, res) => {
   const { fullName, subject, email, password, Class } = req.body;
   try {
@@ -121,6 +137,8 @@ app.post('/login', async (req, res) => {
     if (user.password !== password) {
       return res.status(400).json({ message: "Incorrect password", ans: "wrong Pass" });
     }
+    teachername = user.fullName;
+    teachersubject = user.subject;
     res.status(200).json({ message: "Login successful" });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
@@ -149,7 +167,7 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
     const filename = `recording.wav`;
-    await uploadToGridFS(req.file.buffer, filename, "audio", { teacher: req.body.teacher, subject: req.body.subject });
+    await uploadToGridFS(req.file.buffer, filename, "audio", { teacher: teachername, subject:teachersubject });
     exec("python process_text.py", (error, stdout, stderr) => {
       if (error) {
         console.error(`❌ Processing Error: ${error.message}`);
@@ -167,7 +185,7 @@ app.post('/upload', upload.single('audio'), async (req, res) => {
 
 app.get('/summary', async (req, res) => {
   try {
-    const db = client.db(DB_NAME);
+    const db = gridFSClient.db(DB_NAME); // Use gridFSClient instead of client
     const results = await db.collection("transcriptions").find({}).sort({ teacher: 1 }).toArray();
     if (results.length === 0) {
       return res.status(404).json({ message: "No transcriptions found" });
@@ -195,7 +213,8 @@ app.get('/summary', async (req, res) => {
 
 // Start Server
 const startServer = async () => {
-  await connectToMongoDB();
+  await connectToMongoDB(); // Connect Mongoose
+  await connectGridFSClient(); // Connect GridFS client
   app.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
   });

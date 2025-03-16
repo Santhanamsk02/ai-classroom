@@ -7,7 +7,7 @@ from faster_whisper import WhisperModel
 from transformers import pipeline
 import torch
 from io import BytesIO
-from keybert import KeyBERT 
+from keybert import KeyBERT
 
 
 

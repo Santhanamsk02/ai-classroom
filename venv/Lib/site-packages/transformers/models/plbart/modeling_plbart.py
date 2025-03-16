@@ -12,11 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyTorch PLBART model."""
-
+""" PyTorch PLBART model."""
 import copy
 import math
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.utils.checkpoint
@@ -24,7 +23,6 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
-from ...generation import GenerationMixin
 from ...modeling_attn_mask_utils import (
     _prepare_4d_attention_mask,
     _prepare_4d_attention_mask_for_sdpa,
@@ -55,6 +53,13 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "uclanlp/plbart-base"
 _CONFIG_FOR_DOC = "PLBartConfig"
+
+PLBART_PRETRAINED_MODEL_ARCHIVE_LIST = [
+    "uclanlp/plbart-base",
+    "uclanlp/plbart-cs-java",
+    "uclanlp/plbart-multi_task-all",
+    # See all PLBART models at https://huggingface.co/models?filter=plbart
+]
 
 
 # Copied from transformers.models.mbart.modeling_mbart.shift_tokens_right
@@ -99,20 +104,6 @@ class PLBartLearnedPositionalEmbedding(nn.Embedding):
         ).expand(bsz, -1)
 
         return super().forward(positions + self.offset)
-
-
-# Copied from transformers.models.bart.modeling_bart.BartScaledWordEmbedding with Bart->PLBart
-class PLBartScaledWordEmbedding(nn.Embedding):
-    """
-    This module overrides nn.Embeddings' forward by multiplying with embeddings scale.
-    """
-
-    def __init__(self, num_embeddings: int, embedding_dim: int, padding_idx: int, embed_scale: Optional[float] = 1.0):
-        super().__init__(num_embeddings, embedding_dim, padding_idx)
-        self.embed_scale = embed_scale
-
-    def forward(self, input_ids: torch.Tensor):
-        return super().forward(input_ids) * self.embed_scale
 
 
 # Copied from transformers.models.bart.modeling_bart.BartAttention with Bart->PLBart
@@ -671,11 +662,9 @@ class PLBartEncoder(PLBartPreTrainedModel):
         embed_dim = config.d_model
         self.padding_idx = config.pad_token_id
         self.max_source_positions = config.max_position_embeddings
-        embed_scale = math.sqrt(embed_dim) if config.scale_embedding else 1.0
+        self.embed_scale = math.sqrt(embed_dim) if config.scale_embedding else 1.0
 
-        self.embed_tokens = PLBartScaledWordEmbedding(
-            config.vocab_size, embed_dim, self.padding_idx, embed_scale=embed_scale
-        )
+        self.embed_tokens = nn.Embedding(config.vocab_size, embed_dim, self.padding_idx)
 
         if embed_tokens is not None:
             self.embed_tokens.weight = embed_tokens.weight
@@ -763,7 +752,7 @@ class PLBartEncoder(PLBartPreTrainedModel):
             raise ValueError("You have to specify either input_ids or inputs_embeds")
 
         if inputs_embeds is None:
-            inputs_embeds = self.embed_tokens(input_ids)
+            inputs_embeds = self.embed_tokens(input_ids) * self.embed_scale
 
         embed_pos = self.embed_positions(input)
         embed_pos = embed_pos.to(inputs_embeds.device)
@@ -856,11 +845,9 @@ class PLBartDecoder(PLBartPreTrainedModel):
         self.layerdrop = config.decoder_layerdrop
         self.padding_idx = config.pad_token_id
         self.max_target_positions = config.max_position_embeddings
-        embed_scale = math.sqrt(config.d_model) if config.scale_embedding else 1.0
+        self.embed_scale = math.sqrt(config.d_model) if config.scale_embedding else 1.0
 
-        self.embed_tokens = PLBartScaledWordEmbedding(
-            config.vocab_size, config.d_model, self.padding_idx, embed_scale=embed_scale
-        )
+        self.embed_tokens = nn.Embedding(config.vocab_size, config.d_model, self.padding_idx)
 
         if embed_tokens is not None:
             self.embed_tokens.weight = embed_tokens.weight
@@ -989,7 +976,7 @@ class PLBartDecoder(PLBartPreTrainedModel):
         past_key_values_length = past_key_values[0][0].shape[2] if past_key_values is not None else 0
 
         if inputs_embeds is None:
-            inputs_embeds = self.embed_tokens(input)
+            inputs_embeds = self.embed_tokens(input) * self.embed_scale
 
         if self._use_flash_attention_2:
             # 2d mask is passed through the layers
@@ -1139,8 +1126,7 @@ class PLBartModel(PLBartPreTrainedModel):
         super().__init__(config)
 
         padding_idx, vocab_size = config.pad_token_id, config.vocab_size
-        embed_scale = math.sqrt(config.d_model) if config.scale_embedding else 1.0
-        self.shared = PLBartScaledWordEmbedding(vocab_size, config.d_model, padding_idx, embed_scale=embed_scale)
+        self.shared = nn.Embedding(vocab_size, config.d_model, padding_idx)
 
         self.encoder = PLBartEncoder(config, self.shared)
         self.decoder = PLBartDecoder(config, self.shared)
@@ -1255,7 +1241,7 @@ class PLBartModel(PLBartPreTrainedModel):
     "The PLBART Model with a language modeling head. Can be used for code-to-text, text-to-code and code-to-code.",
     PLBART_START_DOCSTRING,
 )
-class PLBartForConditionalGeneration(PLBartPreTrainedModel, GenerationMixin):
+class PLBartForConditionalGeneration(PLBartPreTrainedModel):
     base_model_prefix = "model"
     _keys_to_ignore_on_load_missing = ["final_logits_bias"]
     _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight", "lm_head.weight"]
@@ -1274,10 +1260,8 @@ class PLBartForConditionalGeneration(PLBartPreTrainedModel, GenerationMixin):
     def get_decoder(self):
         return self.model.get_decoder()
 
-    def resize_token_embeddings(
-        self, new_num_tokens: int, pad_to_multiple_of: Optional[int] = None, mean_resizing: bool = True
-    ) -> nn.Embedding:
-        new_embeddings = super().resize_token_embeddings(new_num_tokens, pad_to_multiple_of, mean_resizing)
+    def resize_token_embeddings(self, new_num_tokens: int, pad_to_multiple_of: Optional[int] = None) -> nn.Embedding:
+        new_embeddings = super().resize_token_embeddings(new_num_tokens, pad_to_multiple_of)
         self._resize_final_logits_bias(new_embeddings.weight.shape[0])
         return new_embeddings
 
@@ -1373,6 +1357,43 @@ class PLBartForConditionalGeneration(PLBartPreTrainedModel, GenerationMixin):
             encoder_hidden_states=outputs.encoder_hidden_states,
             encoder_attentions=outputs.encoder_attentions,
         )
+
+    def prepare_inputs_for_generation(
+        self,
+        decoder_input_ids: torch.LongTensor,
+        past_key_values: Optional[List[torch.FloatTensor]] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        decoder_head_mask: Optional[torch.Tensor] = None,
+        cross_attn_head_mask: Optional[torch.Tensor] = None,
+        use_cache: Optional[bool] = None,
+        encoder_outputs: Optional[List[torch.FloatTensor]] = None,
+        **kwargs,  # TODO: Check if this is needed. It is unused?
+    ) -> Dict[str, Any]:
+        # cut decoder_input_ids if past is used
+        if past_key_values is not None:
+            past_length = past_key_values[0][0].shape[2]
+
+            # Some generation methods already pass only the last input ID
+            if decoder_input_ids.shape[1] > past_length:
+                remove_prefix_length = past_length
+            else:
+                # Default to old behavior: keep only final ID
+                remove_prefix_length = decoder_input_ids.shape[1] - 1
+
+            decoder_input_ids = decoder_input_ids[:, remove_prefix_length:]
+
+        return {
+            "input_ids": None,  # encoder_outputs is defined. input_ids not needed
+            "encoder_outputs": encoder_outputs,
+            "past_key_values": past_key_values,
+            "decoder_input_ids": decoder_input_ids,
+            "attention_mask": attention_mask,
+            "head_mask": head_mask,
+            "decoder_head_mask": decoder_head_mask,
+            "cross_attn_head_mask": cross_attn_head_mask,
+            "use_cache": use_cache,  # change this to avoid caching (presumably for debugging)
+        }
 
     def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
         return shift_tokens_right(labels, self.config.pad_token_id)
@@ -1534,7 +1555,7 @@ class PLBartDecoderWrapper(PLBartPreTrainedModel):
 
 
 # Copied from transformers.models.bart.modeling_bart.BartForCausalLM with Bart->PLBart, facebook/bart-base->uclanlp/plbart-base
-class PLBartForCausalLM(PLBartPreTrainedModel, GenerationMixin):
+class PLBartForCausalLM(PLBartPreTrainedModel):
     _tied_weights_keys = ["lm_head.weight"]
 
     def __init__(self, config):
@@ -1712,6 +1733,32 @@ class PLBartForCausalLM(PLBartPreTrainedModel, GenerationMixin):
             cross_attentions=outputs.cross_attentions,
         )
 
+    def prepare_inputs_for_generation(
+        self, input_ids, past_key_values=None, attention_mask=None, use_cache=None, **kwargs
+    ):
+        # if model is used as a decoder in encoder-decoder model, the decoder attention mask is created on the fly
+        if attention_mask is None:
+            attention_mask = input_ids.new_ones(input_ids.shape)
+
+        if past_key_values:
+            past_length = past_key_values[0][0].shape[2]
+
+            # Some generation methods already pass only the last input ID
+            if input_ids.shape[1] > past_length:
+                remove_prefix_length = past_length
+            else:
+                # Default to old behavior: keep only final ID
+                remove_prefix_length = input_ids.shape[1] - 1
+
+            input_ids = input_ids[:, remove_prefix_length:]
+        # first step, decoder_cached_states are empty
+        return {
+            "input_ids": input_ids,  # encoder_outputs is defined. input_ids not needed
+            "attention_mask": attention_mask,
+            "past_key_values": past_key_values,
+            "use_cache": use_cache,
+        }
+
     @staticmethod
     def _reorder_cache(past_key_values, beam_idx):
         reordered_past = ()
@@ -1720,12 +1767,3 @@ class PLBartForCausalLM(PLBartPreTrainedModel, GenerationMixin):
                 tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past),
             )
         return reordered_past
-
-
-__all__ = [
-    "PLBartForCausalLM",
-    "PLBartForConditionalGeneration",
-    "PLBartForSequenceClassification",
-    "PLBartModel",
-    "PLBartPreTrainedModel",
-]

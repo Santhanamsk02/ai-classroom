@@ -297,7 +297,7 @@
                 const userData = { fullName, Rollno, email, password,Class };
             
                 try {
-                    const response = await fetch("/api/studentsignup", {
+                    const response = await fetch("/studentsignup", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json"
